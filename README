@@ -1,0 +1,52 @@
+* ptask / qmem
+
+** Abstract
+
+- ptask: parallel task scheduler for C programmer
+- qmem: thread-safe queued memory manager for C programmer
+
+** License
+
+Same license as Ruby (CRuby/MRI) Interpreter 1.9.3 or later.
+
+
+** ptask
+
+TBD
+
+
+** qmem
+
+*** Usage
+
+qmem_t *qm = qmem_create(4096 * 16); // 16 pages
+  // The number is buffer size.  If there are not enough buffer, 
+  // allocate a buffer which size is this number.
+
+...
+void *ptr = qmem_alloc(qm, size); // allocate a size byte memory object
+...
+qmem_free(qm, ptr); // dealocate a memory object
+...
+qmem_destruct(qm); 
+  // If there are non-dealocated memory objects,
+  // all of them are dealocated.
+
+*** Assumption
+
+- Allocation/deallocation may be FIFO manner
+  (first allocate, first dealocation).
+- Many allocation/deallocation are occured.
+
+*** Restriction
+
+All functions except qmem_free() must called by one thread (called 
+master thread).  Othre threads (called worker threads) can not allocate 
+qmem.  Under the restriction, qmem doesn't need any locks.
+
+
+** Author
+
+Koichi Sasada <ko1 at atdot dot net>
+
+
