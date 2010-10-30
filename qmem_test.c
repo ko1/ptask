@@ -6,8 +6,8 @@
 #include "qmem.h"
 #else
 #define qmem_alloc(x, s) malloc(s)
-#define qmem_free(x, ptr) free(ptr)
-#define qmem_destruct(qm) if (0) printf("0")
+#define qmem_free(x, ptr) ((x = 0), free(ptr))
+#define qmem_destruct(qm) ((qm) = 0)
 #define qmem_create(size) 0
 #define qmem_t int
 #define qmem_print_status(qm) if (0) printf("0")

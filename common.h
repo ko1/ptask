@@ -62,11 +62,13 @@ WRAP_FUNC1(mutex_lock, pthread_mutex_t *);
 WRAP_FUNC1(mutex_unlock, pthread_mutex_t *);
 
 WRAP_FUNC2(cond_init, pthread_cond_t *, pthread_condattr_t *);
-WRAP_FUNC1(cond_signal, pthread_cond_t *);
+// WRAP_FUNC1(cond_signal, pthread_cond_t *);
 WRAP_FUNC1(cond_broadcast, pthread_cond_t *);
 WRAP_FUNC2(cond_wait, pthread_cond_t *, pthread_mutex_t *);
 
+#ifdef USE_JOIN
 WRAP_FUNC2(join, pthread_t, void **);
+#endif
 
 #define atomic_inc(v) __sync_fetch_and_add(&(v), 1)
 #define atomic_dec(v) __sync_fetch_and_sub(&(v), 1)
@@ -86,6 +88,7 @@ typedef struct tq_struct {
 } tq_t;
 
 struct tq_set {
+    const char *name;
     tq_t *(*create)(size_t);
     void (*free)(tq_t *);
     int (*enq)(tq_t *, ptask_t *);
@@ -94,7 +97,8 @@ struct tq_set {
     void (*wait)(tq_t *);
 };
 
-#define DEFINE_TQ_SET(name) static struct tq_set TQ_##name = { \
+#define DEFINE_TQ_SET(name) struct tq_set TQ_##name = { \
+    #name, \
     tq_##name##_create, \
     tq_##name##_free, \
     tq_##name##_enq, \

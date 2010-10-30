@@ -18,7 +18,8 @@ void ptask_dispatch_group(ptask_t *task, ptask_queue_group_t *group);
 
 ptask_queue_t *ptask_queue_create(int capa);
 void ptask_queue_destruct(ptask_queue_t *);
-void ptask_queue_add(ptask_queue_t *q, ptask_t *task);
+void ptask_queue_dispatch(ptask_queue_t *q, ptask_t *task);
+void ptask_queue_add_worker(ptask_queue_t *q);
 
 ptask_t *ptask_create(void *(*func)(void *args), void *argv);
 int ptask_finished(ptask_t *task);

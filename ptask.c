@@ -70,6 +70,7 @@ struct ptask_queue_group_struct {
     ptask_queue_t *queues[QUEUE_GROUP_MAX]; /* TODO: should be variable list */
     int num;
     int roundrobin;
+    int wait;
 };
 
 static const char *ptask_status_name(ptask_t *task);
@@ -77,13 +78,17 @@ static const char *ptask_status_name(ptask_t *task);
 #define QDBG 0
 
 #if 1
-#include "tq_pthread.c"
-#include "tq_list.c"
+#include "tq_list_lock.c"
 #include "tq_ring.c"
-#include "tq_array.c"
+#include "tq_array_lock.c"
+#include "tq_array_atomic.c"
 
-const struct tq_set *tq = &TQ_pthread;
 
+//const struct tq_set *tq = &TQ_array_lock;
+//const struct tq_set *tq = &TQ_array_atomic;
+const struct tq_set *tq = &TQ_list_lock;
+
+#define tq_name   tq->name
 #define tq_create tq->create
 #define tq_free   tq->free
 #define tq_enq    tq->enq
@@ -91,13 +96,14 @@ const struct tq_set *tq = &TQ_pthread;
 #define tq_steal  tq->steal
 #define tq_wait   tq->wait
 #else
-#include "tq_pthread.c"
-#define tq_create tq_pthread_create
-#define tq_free   tq_pthread_free
-#define tq_enq    tq_pthread_enq
-#define tq_deq    tq_pthread_deq
-#define tq_steal  tq_pthread_steal
-#define tq_wait   tq_pthread_wait
+#include "tq_list_lock.c"
+#define tq_name   "list_loc"
+#define tq_create tq_list_lock_create
+#define tq_free   tq_list_lock_free
+#define tq_enq    tq_list_lock_enq
+#define tq_deq    tq_list_lock_deq
+#define tq_steal  tq_list_lock_steal
+#define tq_wait   tq_list_lock_wait
 #endif
 
 
@@ -110,10 +116,19 @@ static ptask_queue_group_t ptask_default_queue_group;
 static ptask_queue_t *
 tqg_next(ptask_queue_group_t *group)
 {
+    int next;
     if (group->num == 0) {
 	bug("next_queue: no queues.");
     }
-    group->roundrobin = (group->roundrobin + 1) % group->num;
+    if (group->wait > 0) {
+	group->wait--;
+	next = group->roundrobin;
+    }
+    else {
+	group->wait = 0;
+	group->roundrobin = (group->roundrobin + 1) % group->num;
+    }
+    // fprintf(stderr, "group->roundrobin: %d, wait: %d\n", group->roundrobin, group->wait);
     return group->queues[group->roundrobin];
 }
 
@@ -148,7 +163,7 @@ static int
 ptask_set_status(ptask_t *task, enum task_status expect_status, enum task_status status)
 {
     if (__sync_bool_compare_and_swap(&task->status, expect_status, status)) {
-	fprintf(stderr, "wn: %2d task (%p): %s -> %s\n", ptask_worker_id, task, status_name(expect_status), status_name(status));
+	// fprintf(stderr, "wn: %2d task (%p): %s -> %s\n", ptask_worker_id, task, status_name(expect_status), status_name(status));
 	return 1;
     }
     else {
@@ -305,6 +320,8 @@ ptask_queue_deq(ptask_queue_t *queue)
 void
 ptask_wait(ptask_t *task)
 {
+    // fprintf(stderr, "wn: task (%p): %s\n", task, ptask_status_name(task));
+
     while (1) {
 	switch (task->status) {
 	  case TASK_WAIT_Q:
@@ -313,7 +330,6 @@ ptask_wait(ptask_t *task)
 		  ptask_execute(task);
 		  return;
 	      }
-	      sleep(1);
 	      sched_yield();
 	      break;
 	  }
@@ -393,7 +409,7 @@ ptask_profile(void)
     int i, t = 0;
 
     fprintf(stderr,  "[task profile]\n");
-    fprintf(stderr,  "worker num = %d\n", ptask_default_queue_group.num);
+    fprintf(stderr,  "worker num = %d, tq: %s\n", ptask_default_queue_group.num, tq_name);
 
     if (ptask_default_queue_group.num > 0) {
 	fprintf(stderr, "id\texec\tmax_num\tenq_num\tdeq_num\tacq_mis\tenq_mis\tdeq_mis\twait_num\n");
@@ -478,8 +494,8 @@ ptask_create(void *(*func)(void *args), void *argv)
 static void
 ptask_free(ptask_t *task)
 {
-    fprintf(stderr, "wn: %2d task: %p", ptask_worker_id, task);
-    ptask_debug2(1, "ptask_free: %p\n", task);
+    // fprintf(stderr, "wn: %2d task: %p", ptask_worker_id, task);
+    ptask_debug(1, "ptask_free: %p\n", task);
     xfree(task);
 }
 

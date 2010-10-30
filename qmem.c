@@ -94,13 +94,13 @@ qmem_buffer_free(struct qmem_buffer *qmb)
 static void
 qmem_buffer_recycle(qmem_t *qm, struct qmem_buffer *qmb)
 {
-    if (qm->recycle_buffer_count > qm->recycle_size) {
-	qmem_buffer_free(qmb);
-    }
-    else {
+    if (qm->recycle_buffer_count < qm->recycle_size) {
 	qmb->next = qm->recycle;
 	qm->recycle = qmb;
 	qm->recycle_buffer_count++;
+    }
+    else {
+	qmem_buffer_free(qmb);
     }
 }
 
@@ -271,20 +271,17 @@ qmem_print_status(qmem_t *qm)
 {
     struct qmem_buffer *qmb;
     size_t buffer_num = 0;
-    size_t recycle_buffer_num = 0;
 
     qmb = qm->head;
     while (qmb) {buffer_num++; qmb = qmb->next;}
-    qmb = qm->recycle;
-    while (qmb) {recycle_buffer_num++; qmb = qmb->next;}
 
     fprintf(stderr, "* qmem_print_status\n");
     fprintf(stderr, "- buffer number    : %d\n", (int)buffer_num);
-    fprintf(stderr, "- recycle buff num : %d\n", (int)recycle_buffer_num);
     fprintf(stderr, "- default_size     : %d\n", (int)qm->default_size);
     fprintf(stderr, "- recycle_size     : %d\n", (int)qm->recycle_size);
-    fprintf(stderr, "- recycle_buff_cnt : %d\n", (int)qm->recycle_buffer_count);
     fprintf(stderr, "- free_alloc_count : %d\n", (int)qm->free_alloc_count);
+    fprintf(stderr, "- recycle_buff_cnt : %d\n", (int)qm->recycle_buffer_count);
+
 #if QMEM_PROFILE
     fprintf(stderr, "- cnt_alloc        : %d\n", (int)qm->cnt_alloc);
     fprintf(stderr, "- cnt_free         : %d\n", (int)qm->cnt_free);
