@@ -211,6 +211,7 @@ main(int argc, char **argv)
 	    bm = benchmark_start(name);
 	    test(j);
 	    benchmark_finish(bm);
+	    exit(1);
 	}
     }
     return 0;

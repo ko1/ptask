@@ -109,7 +109,7 @@ static ptask_queue_group_t ptask_default_queue_group;
 
 #define QDBG 0
 
-#if 1
+#if 0
 #include "tq_list_lock.c"
 #include "tq_list_atomic.c"
 #include "tq_array_lock.c"
@@ -128,14 +128,14 @@ const struct tq_set * const tq = &TQ_list_atomic;
 #define tq_steal  tq->steal
 #define tq_wait   tq->wait
 #else
-#include "tq_list_lock.c"
-#define tq_name   "list_loc"
-#define tq_create tq_list_lock_create
-#define tq_free   tq_list_lock_free
-#define tq_enq    tq_list_lock_enq
-#define tq_deq    tq_list_lock_deq
-#define tq_steal  tq_list_lock_steal
-#define tq_wait   tq_list_lock_wait
+#include "tq_list_atomic.c"
+#define tq_name   "list_atomic"
+#define tq_create tq_list_atomic_create
+#define tq_free   tq_list_atomic_free
+#define tq_enq    tq_list_atomic_enq
+#define tq_deq    tq_list_atomic_deq
+#define tq_steal  tq_list_atomic_steal
+#define tq_wait   tq_list_atomic_wait
 #endif
 
 /* task control */
