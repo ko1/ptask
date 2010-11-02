@@ -46,7 +46,7 @@ int gen;
 int con;
 #endif
 
-#define USE_QMEM 0
+#define USE_QMEM 1
 
 #if USE_QMEM
 #include "qmem.h"
@@ -150,7 +150,7 @@ main(int argc, char **argv)
 	    if (PROGRESS_REPORT) if (j % (LNUM/80) == 0) fprintf(stderr, ".");
 	}
 
-	if (PROGRESS_REPORT) if (j % (LNUM/80) == 0) fprintf(stderr, "\nwait\n");
+	if (PROGRESS_REPORT) if ((j % (LNUM/80 ? LNUM/80 : 1)) == 0) fprintf(stderr, ".");
 
 	for (i=0; i<wn; i++) {
 #if TQ_DEBUG
@@ -178,7 +178,7 @@ main(int argc, char **argv)
 
 		free_task(task);
 	    }
-	    if (PROGRESS_REPORT) if (j % (LNUM/80) == 0) fprintf(stderr, ".");
+	    if (PROGRESS_REPORT) if ((j % (LNUM/80 ? LNUM/80 : 1)) == 0) fprintf(stderr, ".");
 	}
     }
 

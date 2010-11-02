@@ -5,7 +5,6 @@
 
 struct tq_list_atomic {
     tq_t basic;
-
     ptask_t * volatile head, * volatile tail;
 
     /*
@@ -65,7 +64,7 @@ tq_list_atomic_deq(tq_t *tq)
 
   retry:
     if (queue->head && queue->head != MEDIATOR) {
-	ptask_t *task;
+	volatile ptask_t *task;
 
 	task = atomic_swap(queue->head, MEDIATOR);
 
@@ -90,7 +89,7 @@ tq_list_atomic_deq(tq_t *tq)
 
 		if (atomic_cas(queue->tail, task, 0) != 0) {
 		    // fprintf(stderr, "zero-clear: %p\n", task);
-		    return task;
+		    return (ptask_t *)task;
 		}
 		while ((next = task->next) == 0) {
 		    /* short */
@@ -98,9 +97,9 @@ tq_list_atomic_deq(tq_t *tq)
 		}
 		// fprintf(stderr, "new-head: %p\n", task);
 	    }
-	    queue->head = next;
+	    queue->head = (ptask_t *)next;
 	    //fprintf(stderr, "return: %p, next: %p\n", task, next);
-	    return task;
+	    return (ptask_t *)task;
 	}
     }
 

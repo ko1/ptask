@@ -1,7 +1,7 @@
 
 all: ptask_test qmem_test qmem_test_malloc ptask_bench tq_test
 
-CFLAGS=-O0 -g -Wall
+CFLAGS=-O3 -g -Wall
 
 tests=ptask_test ptask_bench tq_test qmem_test_malloc qmem_test
 

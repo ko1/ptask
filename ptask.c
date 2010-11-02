@@ -55,7 +55,7 @@ enum task_status {
 
 struct ptask_struct {
 #if Q_LINKEDLIST
-    ptask_t *next;
+    ptask_t * volatile next;
 #endif
     ptask_queue_t *chained_queue;
     volatile enum task_status status;
