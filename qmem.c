@@ -152,8 +152,8 @@ set_free_flag(qmem_t *qm, void *ptr)
 
     alloc_ptr[0] = alloc_ptr[0] | 0x01;
 
-    if (0) fprintf(stderr, "set_free_flag: head: %p, alloc_ptr: %p, alloc_ptr[0]: %d\n",
-		   qmb->buff + qmb->free, alloc_ptr, alloc_ptr[0]);
+    if (0) fprintf(stderr, "set_free_flag: head: %p, alloc_ptr: %p, alloc_ptr[0]: %p\n",
+		   qmb->buff + qmb->free, alloc_ptr, (void *)alloc_ptr[0]);
 
     atomic_inc(qm->free_alloc_count);
 }
@@ -161,8 +161,8 @@ set_free_flag(qmem_t *qm, void *ptr)
 static int
 check_free_flag(struct qmem_buffer *qmb, size_t *alloc_ptr)
 {
-    if (0) fprintf(stderr, "check_free_flag: head: %p, alloc_ptr: %p, alloc_ptr[0]: %d\n",
-		   qmb->buff + qmb->free, alloc_ptr, alloc_ptr[0]);
+    if (0) fprintf(stderr, "check_free_flag: head: %p, alloc_ptr: %p, alloc_ptr[0]: %p\n",
+		   qmb->buff + qmb->free, alloc_ptr, (void *)alloc_ptr[0]);
 
     if (alloc_ptr[0] & 0x01) {
 	return 1;

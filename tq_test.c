@@ -46,7 +46,7 @@ int gen;
 int con;
 #endif
 
-#define USE_QMEM 1
+#define USE_QMEM 0
 
 #if USE_QMEM
 #include "qmem.h"
@@ -102,11 +102,13 @@ consumer(void *ptr)
 #if TQ_DEBUG
 	if (records[con++] != task) bug("...");
 #endif
-	
 	if (task == &finish_task) {
 	    if (QDBG) fprintf(stderr, "wn: %2d, finish\n", ptask_worker_id);
 	    return 0;
 	}
+	volatile int n = 100; int i;
+	for (i=0; i<n; i++);
+	
 	if (QDBG) fprintf(stderr, "wn: %2d, task: %p free task.\n", ptask_worker_id, task);
 	free_task(task);
 
