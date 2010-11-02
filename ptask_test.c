@@ -6,6 +6,8 @@
 #define LNUM 1000
 #define QNUM 1
 
+
+
 static void *
 empty(void *ptr)
 {

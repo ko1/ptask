@@ -5,13 +5,14 @@
 #define PTASK_PROFILE_SET_MAX(var, x)
 
 #include "common.h"
+#include "benchutils.h"
 
 struct ptask_struct {
     struct ptask_struct *next;
     int status;
 };
 
-#define PROGRESS_REPORT 1
+#define PROGRESS_REPORT 0
 
 #define ptask_status_name(x) ""
 
@@ -34,8 +35,8 @@ struct tq_set *tq = &TQ_list_atomic;
 //struct tq_set *tq = &TQ_array_atomic;
 //struct tq_set *tq = &TQ_array_nosync;
 
-#define MAX  1000000000
-//#define MAX  24000
+#define MAX  100000000
+// #define MAX  24000
 #define TNUM 1
 #define LNUM (MAX/TNUM)
 #define WNUM 4
@@ -116,21 +117,16 @@ consumer(void *ptr)
     }
 }
 
-int
-main(int argc, char **argv)
+static void
+test(int wn)
 {
     tq_t *q = tq->create(10000);
-    int i, j, wn = WNUM;
+    int i, j;
     pthread_t *tid;
 
 #if USE_QMEM
     qm = qmem_create(4096 * 16);
 #endif
-
-    if (argc > 1) {
-	wn = atoi(argv[1]);
-    }
-    fprintf(stderr, "wn: %d, tq: %s\n", wn, tq->name);
 
     if (wn > 0) {
 	tid = malloc(sizeof(pthread_t) * wn);
@@ -184,10 +180,38 @@ main(int argc, char **argv)
 	}
     }
 
-    fprintf(stderr, "finish\n");
+    // fprintf(stderr, "finish\n");
 #if USE_QMEM
     qmem_print_status(qm);
     qmem_destruct(qm);
 #endif
+}
+
+struct tq_set *tqs[] = {
+    &TQ_list_lock,
+    &TQ_list_atomic,
+    // &TQ_list_nosync,
+    //&TQ_array_lock,
+    //&TQ_array_atomic,
+    // TQ_array_nosync,
+};
+
+int
+main(int argc, char **argv)
+{
+    int i, j;
+    for (i=0; i<sizeof(tqs)/sizeof(void *); i++) {
+	tq = tqs[i];
+
+	for (j=0; j<8; j++) {
+	    benchmark_t *bm;
+	    char name[100];
+	    fprintf(stderr, "wn: %d, tq: %s\n", j, tq->name);
+	    sprintf(name, "%s#%d", tq->name, j);
+	    bm = benchmark_start(name);
+	    test(j);
+	    benchmark_finish(bm);
+	}
+    }
     return 0;
 }
