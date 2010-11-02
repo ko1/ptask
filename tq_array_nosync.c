@@ -5,7 +5,7 @@
 
 #define LOCK_COST_TEST 0
 #define ATOMIC_COST_TEST 0
-#define ATOMIC_LOCK_COST_TEST 1
+#define ATOMIC_LOCK_COST_TEST 0
 
 #if ATOMIC_LOCK_COST_TEST
 static void
@@ -99,7 +99,9 @@ tq_array_nosync_enq(tq_t *tq, ptask_t *task)
 	atomic_inc(queue->atomic_num);
 #endif
 
+#if ATOMIC_LOCK_COST_TEST
 	ATOMIC_LOCK(&queue->atomic_num, 0);
+#endif
 
 	PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
 	return 1;
@@ -133,7 +135,10 @@ tq_array_nosync_deq(tq_t *tq)
 #if ATOMIC_COST_TEST
 	atomic_dec(queue->atomic_num);
 #endif
+
+#if ATOMIC_LOCK_COST_TEST
 	ATOMIC_LOCK(&queue->atomic_num, 0);
+#endif
 
 	if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, task: %p\n", queue, queue->basic.num, task);
 

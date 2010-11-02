@@ -121,8 +121,9 @@ tq_list_atomic_wait(tq_t *tq)
     struct tq_list_atomic *queue = (struct tq_list_atomic *)tq;
     if (QDBG) fprintf(stderr, "wait - q: %p, num: %d\n", queue, queue->basic.num);
 
-    // sched_yield();
-    atomic_pause();
+    if (queue->head == 0) {
+	sched_yield();
+    }
 }
 
 DEFINE_TQ_SET(list_atomic);

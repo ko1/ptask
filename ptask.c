@@ -117,8 +117,8 @@ static ptask_queue_group_t ptask_default_queue_group;
 
 //const struct tq_set *tq = &TQ_array_lock;
 //const struct tq_set *tq = &TQ_array_atomic;
-const struct tq_set *tq = &TQ_list_lock;
-//const struct tq_set * const tq = &TQ_list_atomic;
+//const struct tq_set *tq = &TQ_list_lock;
+const struct tq_set * const tq = &TQ_list_atomic;
 
 #define tq_name   tq->name
 #define tq_create tq->create
@@ -179,7 +179,6 @@ tqg_next(ptask_queue_group_t *group)
 static ptask_queue_t *
 tqg_max_queue(ptask_queue_group_t *group)
 {
-    ptask_queue_t *queue;
     int i, qn = -1, num = 0, n = group->num;
 
     for (i=0; i<n; i++) {

@@ -99,7 +99,7 @@ tq_list_lock_deq(tq_t *tq)
 static ptask_t *
 tq_list_lock_steal(tq_t *tq)
 {
-    return 0;//tq_list_lock_deq(tq);
+    return tq_list_lock_deq(tq);
 }
 
 static void
@@ -108,7 +108,7 @@ tq_list_lock_wait(tq_t *tq)
     struct tq_list_lock *queue = (struct tq_list_lock *)tq;
     if (QDBG) fprintf(stderr, "wait - q: %p, num: %d\n", queue, queue->basic.num);
 
-    if (1) {
+    if (0) {
 	LOCK(&queue->lock, {
 	    while (queue->head == 0) {
 		PTASK_PROFILE_INC(wait_num);

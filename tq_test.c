@@ -34,7 +34,7 @@ struct tq_set *tq = &TQ_list_atomic;
 //struct tq_set *tq = &TQ_array_atomic;
 //struct tq_set *tq = &TQ_array_nosync;
 
-#define MAX  100000000
+#define MAX  1000000000
 //#define MAX  24000
 #define TNUM 1
 #define LNUM (MAX/TNUM)
@@ -128,7 +128,7 @@ main(int argc, char **argv)
     if (argc > 1) {
 	wn = atoi(argv[1]);
     }
-    fprintf(stderr, "wn: %d\n", wn);
+    fprintf(stderr, "wn: %d, tq: %s\n", wn, tq->name);
 
     if (wn > 0) {
 	tid = malloc(sizeof(pthread_t) * wn);
