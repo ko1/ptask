@@ -11,6 +11,8 @@
 #define COST 1000
 #define LNUM (MAX/COST)
 
+
+
 static void *
 loop(void *ptr)
 {
@@ -28,6 +30,7 @@ main(int argc, char *argv[])
     int i, j;
     int qn = QNUM;
     int cost = COST;
+    srand(123);
 
     if (argc > 1) {
 	qn = atoi(argv[1]);
@@ -36,8 +39,7 @@ main(int argc, char *argv[])
 	cost = atoi(argv[2]);
     }
 
-    fprintf(stderr, "qn: %d\n", qn);
-    fprintf(stderr, "cost: %d, tnum: %d, lnum: %d\n", cost, TNUM, LNUM);
+    fprintf(stderr, "qn: %d, cost: %d, tnum: %d, lnum: %d\n", qn, cost, TNUM, LNUM);
 
     if (qn > 0) {
 	ptask_queue_t **qs = (ptask_queue_t **)malloc(sizeof(ptask_queue_t *) * qn);

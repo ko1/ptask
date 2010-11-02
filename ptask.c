@@ -4,9 +4,21 @@
  * Created by Koichi Sasada
  */
 
+#define PTASK_PROFILE 1
+
 #include "common.h"
 #include "ptask.h"
 #define Q_LINKEDLIST 1
+
+#if PTASK_PROFILE
+#define PTASK_PROFILE_INC(var)     ((task_workers[ptask_worker_id].var)++)
+#define PTASK_PROFILE_SET_MAX(var, x)  ((task_workers[ptask_worker_id].var) = \
+					(task_workers[ptask_worker_id].var) < (x) ? (x) : \
+					(task_workers[ptask_worker_id].var))
+#else
+#define PTASK_PROFILE_INC(var)
+#define PTASK_PROFILE_SET_MAX(var, x)
+#endif
 
 static __thread int ptask_worker_id = 0;
 
@@ -57,6 +69,22 @@ typedef struct ptask_worker_struct {
     int exec_count;
     ptask_queue_t *queue;
     pthread_t tid;
+
+#if PTASK_PROFILE
+    int max_num;
+
+    int enq_num;
+    int enq_miss;
+
+    int deq_num;
+    int deq_miss;
+
+    int wait_num;
+
+    int acquire_miss;
+    int steal_num;
+    int steal_miss;
+#endif
 } ptask_worker_t;
 
 struct ptask_queue_struct {
@@ -75,18 +103,22 @@ struct ptask_queue_group_struct {
 
 static const char *ptask_status_name(ptask_t *task);
 
+static int task_worker_count;
+static ptask_worker_t task_workers[QUEUE_GROUP_MAX + 1];
+static ptask_queue_group_t ptask_default_queue_group;
+
 #define QDBG 0
 
 #if 1
 #include "tq_list_lock.c"
-#include "tq_ring.c"
+#include "tq_list_atomic.c"
 #include "tq_array_lock.c"
 #include "tq_array_atomic.c"
-
 
 //const struct tq_set *tq = &TQ_array_lock;
 //const struct tq_set *tq = &TQ_array_atomic;
 const struct tq_set *tq = &TQ_list_lock;
+//const struct tq_set * const tq = &TQ_list_atomic;
 
 #define tq_name   tq->name
 #define tq_create tq->create
@@ -106,30 +138,81 @@ const struct tq_set *tq = &TQ_list_lock;
 #define tq_wait   tq_list_lock_wait
 #endif
 
-
-static int task_worker_count;
-static ptask_worker_t task_workers[QUEUE_GROUP_MAX + 1];
-static ptask_queue_group_t ptask_default_queue_group;
-
 /* task control */
 
 static ptask_queue_t *
 tqg_next(ptask_queue_group_t *group)
 {
-    int next;
+    ptask_queue_t *queue;
+
     if (group->num == 0) {
 	bug("next_queue: no queues.");
     }
+
+    queue = group->queues[group->roundrobin];
+
+    if (queue->tq->num < 5) {
+	return queue;
+    }
+    else {
+	group->roundrobin = (group->roundrobin + 1) % group->num;
+	return group->queues[group->roundrobin];
+    }
+
+#if 0
+    int next;
+    /* round robin */
     if (group->wait > 0) {
 	group->wait--;
 	next = group->roundrobin;
     }
+
     else {
 	group->wait = 0;
 	group->roundrobin = (group->roundrobin + 1) % group->num;
     }
     // fprintf(stderr, "group->roundrobin: %d, wait: %d\n", group->roundrobin, group->wait);
     return group->queues[group->roundrobin];
+#endif
+}
+
+static ptask_queue_t *
+tqg_max_queue(ptask_queue_group_t *group)
+{
+    ptask_queue_t *queue;
+    int i, qn = -1, num = 0, n = group->num;
+
+    for (i=0; i<n; i++) {
+	if (group->queues[i]->tq && group->queues[i]->tq->num > num) {
+	    qn = i;
+	    num = group->queues[i]->tq->num;
+	}
+    }
+
+    if (qn == -1) {
+	return 0;
+    }
+    else {
+	return group->queues[qn];;
+    }
+}
+
+static ptask_t *ptask_queue_deq(ptask_queue_t *queue);
+
+static ptask_t *
+ptask_group_steal(ptask_queue_group_t *group)
+{
+    ptask_t *task;
+    ptask_queue_t *queue = tqg_max_queue(group);
+
+    if (queue && (task = ptask_queue_deq(queue)) != 0) {
+	PTASK_PROFILE_INC(steal_num);
+	return task;
+    }
+    else {
+	PTASK_PROFILE_INC(steal_miss);
+	return 0;
+    }
 }
 
 /* task management */
@@ -148,6 +231,7 @@ status_name(enum task_status status)
 	E(FREE_Q);
 #undef E
       default:
+	fprintf(stderr, "status: %d\n", status);
 	bug("unrechable");
 	return 0;
     }
@@ -172,6 +256,24 @@ ptask_set_status(ptask_t *task, enum task_status expect_status, enum task_status
 }
 
 static void ptask_free(ptask_t *task);
+
+static int
+ptask_acquire(ptask_t *task)
+{
+    enum task_status status = task->status;
+
+    if (status == TASK_WAIT) {
+	if (ptask_set_status(task, status, TASK_RUN)) {
+	    return 1;
+	}
+    }
+    else if (status == TASK_WAIT_Q) {
+	if (ptask_set_status(task, status, TASK_RUN_Q)) {
+	    return 1;
+	}
+    }
+    return 0;
+}
 
 static int
 ptask_release(ptask_t *task)
@@ -226,24 +328,6 @@ ptask_execute(ptask_t *task)
 }
 
 static int
-ptask_acquire(ptask_t *task)
-{
-    enum task_status status = task->status;
-
-    if (status == TASK_WAIT) {
-	if (ptask_set_status(task, status, TASK_RUN)) {
-	    return 1;
-	}
-    }
-    else if (status == TASK_WAIT_Q) {
-	if (ptask_set_status(task, status, TASK_RUN_Q)) {
-	    return 1;
-	}
-    }
-    return 0;
-}
-
-static int
 ptask_queue_enq(ptask_queue_t *queue, ptask_t *task)
 {
   retry:
@@ -269,8 +353,10 @@ ptask_queue_enq(ptask_queue_t *queue, ptask_t *task)
 
     task->chained_queue = queue;
     while (tq_enq(queue->tq, task) == 0) {
+	PTASK_PROFILE_INC(enq_miss);
 	sched_yield();
     }
+    PTASK_PROFILE_INC(enq_num);
     return 1;
 }
 
@@ -282,6 +368,8 @@ ptask_queue_deq(ptask_queue_t *queue)
 
 	if (task) {
 	  retry:
+	    PTASK_PROFILE_INC(deq_num);
+
 	    switch(task->status) {
 	      case TASK_RUN_Q:
 		if (ptask_set_status(task, TASK_RUN_Q, TASK_RUN)) break;
@@ -308,9 +396,10 @@ ptask_queue_deq(ptask_queue_t *queue)
 		bug("unreachable");
 		break;
 	    }
-	    queue->tq->acquire_miss++;
+	    PTASK_PROFILE_INC(acquire_miss);
 	}
 	else {
+	    PTASK_PROFILE_INC(deq_miss);
 	    return 0;
 	}
     }
@@ -330,13 +419,11 @@ ptask_wait(ptask_t *task)
 		  ptask_execute(task);
 		  return;
 	      }
-	      sched_yield();
 	      break;
 	  }
 	  case TASK_RUN:
 	  case TASK_RUN_Q: {
 	      /* TODO: wait.  now, simply polling. */
-	      sched_yield();
 	      break;
 	  }
 	  case TASK_FINISH:
@@ -350,13 +437,18 @@ ptask_wait(ptask_t *task)
 	    break;
 	}
 
-	{ /* task stealing from only this queue */
-	    ptask_queue_t *queue = task->chained_queue;
-	    if (queue) {
-		ptask_t *task =  tq_steal(queue->tq);
-		if (task) {
-		    ptask_execute(task);
-		}
+	{
+	    ptask_queue_t *next_queue = task->chained_queue;
+	    ptask_t *t;
+
+	    if (next_queue && (t = ptask_queue_deq(next_queue)) != 0) {
+		ptask_execute(t);
+	    }
+	    else if (next_queue && (t = ptask_group_steal(next_queue->group)) != 0) {
+		ptask_execute(t);
+	    }
+	    else {
+		sched_yield();
 	    }
 	}
     }
@@ -377,7 +469,12 @@ ptask_worker_func(void *ptr)
 	    ptask_execute(task);
 	}
 	else {
-	    tq_wait(queue->tq);
+	    if ((task = ptask_group_steal(queue->group)) != 0) {
+		ptask_execute(task);
+	    }
+	    else {
+		tq_wait(queue->tq);
+	    }
 	}
     }
 
@@ -406,29 +503,35 @@ ptask_worker_create(ptask_queue_t *queue)
 static void
 ptask_profile(void)
 {
+#if PTASK_PROFILE
     int i, t = 0;
+#endif
 
     fprintf(stderr,  "[task profile]\n");
     fprintf(stderr,  "worker num = %d, tq: %s\n", ptask_default_queue_group.num, tq_name);
 
+#if PTASK_PROFILE
     if (ptask_default_queue_group.num > 0) {
-	fprintf(stderr, "id\texec\tmax_num\tenq_num\tdeq_num\tacq_mis\tenq_mis\tdeq_mis\twait_num\n");
+	fprintf(stderr, "id\texec\tmax_num\tenq_num\tdeq_num\tacq_mis\tenq_mis\tdeq_mis\twai_num\tste_num\tste_mis\n");
 	for (i=0; i<ptask_default_queue_group.num + 1; i++) {
 	    t += task_workers[i].exec_count;
-	    fprintf(stderr,  "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+	    fprintf(stderr,  "%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
 		    task_workers[i].id,
 		    task_workers[i].exec_count,
-		    task_workers[i].queue->tq->max_num,
-		    task_workers[i].queue->tq->enq_num,
-		    task_workers[i].queue->tq->deq_num,
-		    task_workers[i].queue->tq->acquire_miss,
-		    task_workers[i].queue->tq->enq_miss,
-		    task_workers[i].queue->tq->deq_miss,
-		    task_workers[i].queue->tq->cond_wait_num
+		    task_workers[i].max_num,
+		    task_workers[i].enq_num,
+		    task_workers[i].deq_num,
+		    task_workers[i].acquire_miss,
+		    task_workers[i].enq_miss,
+		    task_workers[i].deq_miss,
+		    task_workers[i].wait_num,
+		    task_workers[i].steal_num,
+		    task_workers[i].steal_miss
 		    );
 	}
 	fprintf(stderr,  "total exec = %d\n", t);
     }
+#endif
 }
 
 static void

@@ -87,13 +87,7 @@ tq_ring_enq(tq_t *tq, ptask_t *task)
 
     atomic_inc(queue->basic.num);
 
-    /* profiling */
-    queue->basic.enq_num++;
-    if (queue->basic.max_num < queue->basic.num) {
-	queue->basic.max_num = queue->basic.num;
-    }
-
-    // tq_ring_show(queue, task);
+    PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
     return 1;
 }
 
@@ -109,7 +103,6 @@ tq_ring_deq(tq_t *tq)
 
     if (task == &queue->head) {
 	if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, empty\n", queue, queue->basic.num);
-	queue->basic.deq_miss++;
 	return 0;
     }
     else {

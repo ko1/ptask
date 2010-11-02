@@ -56,7 +56,6 @@ tq_array_atomic_enq(tq_t *tq, ptask_t *task)
     if (QDBG) fprintf(stderr, "wn: %2d enq - q: %p, num: %d, task: %p\n", ptask_worker_id, queue, queue->basic.num, task);
 
     if (queue->basic.num == queue->capa) {
-	queue->basic.enq_miss++;
 	return 0;
     }
     else {
@@ -73,10 +72,7 @@ tq_array_atomic_enq(tq_t *tq, ptask_t *task)
 	}
 
 	/* profiling */
-	queue->basic.enq_num++;
-	if (queue->basic.max_num < queue->basic.num) {
-	    queue->basic.max_num = queue->basic.num;
-	}
+	PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
 	return 1;
     }
 }
@@ -90,7 +86,6 @@ tq_array_atomic_deq(tq_t *tq)
     if (queue->basic.num == 0) {
 	if (QDBG) fprintf(stderr, "wn: %2d deq - q: %p, num: %d, deq empty\n",
 			  ptask_worker_id, queue, queue->basic.num);
-	queue->basic.deq_miss++;
 	return 0;
     }
     else {
@@ -103,8 +98,6 @@ tq_array_atomic_deq(tq_t *tq)
 	task = queue->tasks[tail.tagged.index];
 
 	if (!atomic_cas(queue->tail.number, tail.number, next_tail.number)) {
-	    fprintf(stderr, "wn: %2d deq - index: %d, current: %d\n",
-		    ptask_worker_id, tail.tagged.index, queue->tail.tagged.index);
 	    goto retry;
 	}
 
@@ -131,7 +124,7 @@ tq_array_atomic_wait(tq_t *tq)
     if (QDBG); fprintf(stderr, "wn: %2d wait - q: %p, num: %d, start\n", ptask_worker_id, queue, queue->basic.num);
 
   retry:
-    queue->basic.cond_wait_num++;
+    PTASK_PROFILE_INC(wait_num);
 
     atomic_inc(queue->wait_thread_num);
 

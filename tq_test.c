@@ -1,4 +1,9 @@
 #define USE_JOIN 1
+
+#define PTASK_PROFILE 0
+#define PTASK_PROFILE_INC(var) 
+#define PTASK_PROFILE_SET_MAX(var, x)
+
 #include "common.h"
 
 struct ptask_struct {
@@ -16,23 +21,32 @@ static int last_ptask_worker_id = 1;
 #define QDBG 0
 
 #include "tq_list_lock.c"
+#include "tq_list_atomic.c"
 #include "tq_list_nosync.c"
 #include "tq_array_lock.c"
 #include "tq_array_atomic.c"
 #include "tq_array_nosync.c"
 
-// struct tq_set *tq = &TQ_list;
+struct tq_set *tq = &TQ_list_atomic;
+//struct tq_set *tq = &TQ_list_lock;
 //struct tq_set *tq = &TQ_list_nosync;
 //struct tq_set *tq = &TQ_array_lock;
 //struct tq_set *tq = &TQ_array_atomic;
-struct tq_set *tq = &TQ_array_nosync;
+//struct tq_set *tq = &TQ_array_nosync;
 
 #define MAX  100000000
-#define TNUM 500
+//#define MAX  24000
+#define TNUM 1
 #define LNUM (MAX/TNUM)
 #define WNUM 4
 
-#define USE_QMEM 1
+#if TQ_DEBUG
+ptask_t *records[MAX+100];
+int gen;
+int con;
+#endif
+
+#define USE_QMEM 0
 
 #if USE_QMEM
 #include "qmem.h"
@@ -49,12 +63,17 @@ make_task(void)
     task = malloc(sizeof(ptask_t));
 #endif
     task->status = 0;
+
+#if TQ_DEBUG
+    records[gen++] = task;
+#endif
     return task;
 }
 
 static void
 free_task(ptask_t *task)
 {
+    // fprintf(stderr, "x");
 #if USE_QMEM
     qmem_free(qm, task);
 #else
@@ -63,6 +82,7 @@ free_task(ptask_t *task)
 }
 
 static ptask_t finish_task;
+int wnum[100];
 
 static void *
 consumer(void *ptr)
@@ -78,12 +98,19 @@ consumer(void *ptr)
 	while ((task = tq->deq(q)) == 0) {
 	    tq->wait(q);
 	}
+
+#if TQ_DEBUG
+	if (records[con++] != task) bug("...");
+#endif
+	
 	if (task == &finish_task) {
 	    if (QDBG) fprintf(stderr, "wn: %2d, finish\n", ptask_worker_id);
 	    return 0;
 	}
-	if (QDBG) fprintf(stderr, "wn: %2d, task: %p\n", ptask_worker_id, task);
+	if (QDBG) fprintf(stderr, "wn: %2d, task: %p free task.\n", ptask_worker_id, task);
 	free_task(task);
+
+	wnum[ptask_worker_id]++;
     }
 }
 
@@ -113,6 +140,9 @@ main(int argc, char **argv)
 	for (j=0; j<LNUM; j++) {
 	    for (i=0; i<TNUM; i++) {
 		ptask_t *task = make_task();
+
+		if (QDBG) fprintf(stderr, "wn: %2d, task: %p enq task.\n", ptask_worker_id, task);
+
 		while (tq->enq(q, task) == 0) {
 		    /* sched yield */
 		}
@@ -123,11 +153,17 @@ main(int argc, char **argv)
 	if (PROGRESS_REPORT) if (j % (LNUM/80) == 0) fprintf(stderr, "\nwait\n");
 
 	for (i=0; i<wn; i++) {
+#if TQ_DEBUG
+	    records[gen++] = &finish_task;
+#endif
 	    tq->enq(q, &finish_task);
 	}
 	for (i=0; i<wn; i++) {
 	    join(tid[i], 0);
 	}
+
+	tq->free(q);
+	free(tid);
     }
     else {
 	int i, j;

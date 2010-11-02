@@ -63,13 +63,7 @@ tq_list_lock_enq(tq_t *tq, ptask_t *task)
 	queue->basic.num++;
     });
 
-    /* profiling */
-    queue->basic.enq_num++;
-    if (queue->basic.max_num < queue->basic.num) {
-	queue->basic.max_num = queue->basic.num;
-    }
-
-    // tq_list_lock_show(queue, task);
+    PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
     return 1;
 }
 
@@ -94,21 +88,18 @@ tq_list_lock_deq(tq_t *tq)
 		queue->basic.num--;
 	    }
 	});
+
 	return task;
     }
 
     if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, empty\n", queue, queue->basic.num);
-    queue->basic.deq_miss++;
     return 0;
 }
 
 static ptask_t *
 tq_list_lock_steal(tq_t *tq)
 {
-    struct tq_list_lock *queue = (struct tq_list_lock *)tq;
-    ptask_t *task = 0;
-    queue = 0;
-    return task;
+    return 0;//tq_list_lock_deq(tq);
 }
 
 static void
@@ -120,11 +111,13 @@ tq_list_lock_wait(tq_t *tq)
     if (1) {
 	LOCK(&queue->lock, {
 	    while (queue->head == 0) {
+		PTASK_PROFILE_INC(wait_num);
 		cond_wait(&queue->cond, &queue->lock);
 	    }
 	});
     }
     else {
+	PTASK_PROFILE_INC(wait_num);
 	sched_yield();
     }
 }

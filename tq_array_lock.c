@@ -49,7 +49,6 @@ tq_array_lock_enq(tq_t *tq, ptask_t *task)
     if (QDBG) fprintf(stderr, "enq - q: %p, num: %d, task: %p\n", queue, queue->basic.num, task);
 
     if (queue->num == queue->capa) {
-	queue->basic.enq_miss++;
 	return 0;
     }
     else {
@@ -70,11 +69,7 @@ tq_array_lock_enq(tq_t *tq, ptask_t *task)
 	    }
 	});
 
-	/* profiling */
-	queue->basic.enq_num++;
-	if (queue->basic.max_num < queue->basic.num) {
-	    queue->basic.max_num = queue->basic.num;
-	}
+	PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
 	return 1;
     }
 }
@@ -89,14 +84,14 @@ tq_array_lock_wait(tq_t *tq)
 	    while (queue->num == 0) {
 		if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, sleep\n", queue, queue->basic.num);
 		queue->wait_thread_num++;
-		queue->basic.cond_wait_num++;
+		PTASK_PROFILE_INC(wait_num);
 		cond_wait(&queue->cond, &queue->cond_lock);
 		if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, wakeup\n", queue, queue->basic.num);
 	    }
 	});
     }
     else {
-	queue->basic.cond_wait_num++;
+	PTASK_PROFILE_INC(wait_num);
 	sched_yield();
     }
 }
@@ -108,14 +103,11 @@ tq_array_lock_deq(tq_t *tq)
 
     if (queue->num == 0) {
 	if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, deq empty\n", queue, queue->num);
-	queue->basic.deq_miss++;
 	return 0;
     }
     else {
 	ptask_t *task = queue->tasks[queue->tail];
 	queue->tail = (queue->tail + 1) % queue->capa;
-	queue->basic.deq_num++;
-
 	atomic_dec(queue->num);
 
 	if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, task: %p\n", queue, queue->basic.num, task);

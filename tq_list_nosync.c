@@ -53,10 +53,11 @@ tq_list_nosync_enq(tq_t *tq, ptask_t *task)
     }
 
     /* profiling */
-    queue->basic.enq_num++;
+#if PTASK_PROFILE
     if (queue->basic.max_num < queue->basic.num) {
 	queue->basic.max_num = queue->basic.num;
     }
+#endif
 
     // tq_list_nosync_show(queue, task);
     return 1;
@@ -85,7 +86,6 @@ tq_list_nosync_deq(tq_t *tq)
     }
 
     if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, empty\n", queue, queue->basic.num);
-    queue->basic.deq_miss++;
     return 0;
 }
 

@@ -73,18 +73,11 @@ WRAP_FUNC2(join, pthread_t, void **);
 #define atomic_inc(v) __sync_fetch_and_add(&(v), 1)
 #define atomic_dec(v) __sync_fetch_and_sub(&(v), 1)
 #define atomic_cas(v, e, a) __sync_bool_compare_and_swap(&(v), (e), (a))
+#define atomic_swap(v, e) __sync_lock_test_and_set(&(v), (e))
+#define atomic_pause() {__asm__ __volatile__("pause");}
 
 typedef struct tq_struct {
     int num;
-
-    /* profile counters */
-    int max_num;
-    int enq_num;
-    int deq_num;
-    int enq_miss;
-    int deq_miss;
-    int cond_wait_num;
-    int acquire_miss;
 } tq_t;
 
 struct tq_set {

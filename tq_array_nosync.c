@@ -8,7 +8,7 @@
 #define ATOMIC_LOCK_COST_TEST 1
 
 #if ATOMIC_LOCK_COST_TEST
-void
+static void
 atomic_lock(volatile int *lock)
 {
 #if 1
@@ -82,7 +82,6 @@ tq_array_nosync_enq(tq_t *tq, ptask_t *task)
     if (QDBG) fprintf(stderr, "enq - q: %p, num: %d, task: %p\n", queue, queue->basic.num, task);
 
     if (queue->basic.num == queue->capa) {
-	queue->basic.enq_miss++;
 	return 0;
     }
     else {
@@ -102,11 +101,7 @@ tq_array_nosync_enq(tq_t *tq, ptask_t *task)
 
 	ATOMIC_LOCK(&queue->atomic_num, 0);
 
-	/* profiling */
-	queue->basic.enq_num++;
-	if (queue->basic.max_num < queue->basic.num) {
-	    queue->basic.max_num = queue->basic.num;
-	}
+	PTASK_PROFILE_SET_MAX(max_num, queue->basic.num);
 	return 1;
     }
 }
@@ -114,8 +109,7 @@ tq_array_nosync_enq(tq_t *tq, ptask_t *task)
 static void
 tq_array_nosync_wait(tq_t *tq)
 {
-    struct tq_array_nosync *queue = (struct tq_array_nosync *)tq;
-    queue->basic.cond_wait_num++;
+    PTASK_PROFILE_INC(wait_num);
     sched_yield();
 }
 
@@ -126,13 +120,11 @@ tq_array_nosync_deq(tq_t *tq)
 
     if (queue->basic.num == 0) {
 	if (QDBG) fprintf(stderr, "deq - q: %p, num: %d, deq empty\n", queue, queue->basic.num);
-	queue->basic.deq_miss++;
 	return 0;
     }
     else {
 	ptask_t *task = queue->tasks[queue->tail];
 	queue->tail = (queue->tail + 1) % queue->capa;
-	queue->basic.deq_num++;
 	queue->basic.num--;
 
 #if LOCK_COST_TEST

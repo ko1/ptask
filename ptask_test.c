@@ -5,6 +5,7 @@
 #define TNUM 10000
 #define LNUM 1000
 #define QNUM 1
+
 static void *
 empty(void *ptr)
 {
@@ -34,7 +35,6 @@ main(int argc, char *argv[])
     if (argc > 1) {
 	qn = atoi(argv[1]);
 	if (qn < 0) qn = 0;
-	printf("qn: %d\n", qn);
     }
     if (argc > 2) {
 	switch(argv[2][0]) {
@@ -44,6 +44,8 @@ main(int argc, char *argv[])
 	    break;
 	}
     }
+
+    fprintf(stderr, "qn: %d\n", qn);
 
     if (qn > 0) {
 	ptask_queue_t **qs = (ptask_queue_t **)malloc(sizeof(ptask_queue_t *) * qn);
