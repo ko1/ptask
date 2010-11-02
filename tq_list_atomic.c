@@ -53,6 +53,8 @@ tq_list_atomic_enq(tq_t *tq, ptask_t *task)
 	tail->next = task;
     }
 
+    atomic_inc(queue->basic.num);
+
     return 1;
 }
 
@@ -89,7 +91,7 @@ tq_list_atomic_deq(tq_t *tq)
 
 		if (atomic_cas(queue->tail, task, 0) != 0) {
 		    // fprintf(stderr, "zero-clear: %p\n", task);
-		    return (ptask_t *)task;
+		    goto finish;
 		}
 		while ((next = task->next) == 0) {
 		    /* short */
@@ -99,7 +101,9 @@ tq_list_atomic_deq(tq_t *tq)
 	    }
 	    queue->head = (ptask_t *)next;
 	    //fprintf(stderr, "return: %p, next: %p\n", task, next);
-	    return (ptask_t *)task;
+	  finish:
+	    atomic_dec(queue->basic.num);
+	    return task;
 	}
     }
 

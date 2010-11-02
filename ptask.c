@@ -127,7 +127,9 @@ const struct tq_set * const tq = &TQ_list_atomic;
 #define tq_deq    tq->deq
 #define tq_steal  tq->steal
 #define tq_wait   tq->wait
-#else
+
+#elif 0
+
 #include "tq_list_atomic.c"
 #define tq_name   "list_atomic"
 #define tq_create tq_list_atomic_create
@@ -136,6 +138,17 @@ const struct tq_set * const tq = &TQ_list_atomic;
 #define tq_deq    tq_list_atomic_deq
 #define tq_steal  tq_list_atomic_steal
 #define tq_wait   tq_list_atomic_wait
+
+#else
+
+#include "tq_list_lock.c"
+#define tq_name   "list_lock"
+#define tq_create tq_list_lock_create
+#define tq_free   tq_list_lock_free
+#define tq_enq    tq_list_lock_enq
+#define tq_deq    tq_list_lock_deq
+#define tq_steal  tq_list_lock_steal
+#define tq_wait   tq_list_lock_wait
 #endif
 
 /* task control */
@@ -152,13 +165,13 @@ tqg_next(ptask_queue_group_t *group)
     queue = group->queues[group->roundrobin];
 
     if (queue->tq->num < 5) {
+	// fprintf(stderr, "q: %p, queue->tq->num: %d\n", queue, queue->tq->num);
 	return queue;
     }
     else {
 	group->roundrobin = (group->roundrobin + 1) % group->num;
 	return group->queues[group->roundrobin];
     }
-
 #if 0
     int next;
     /* round robin */
@@ -665,6 +678,18 @@ size_t
 ptask_memsize(ptask_t *task)
 {
     return sizeof(ptask_t);
+}
+
+int
+ptask_finished(ptask_t *task)
+{
+    enum task_status status = task->status;
+    if (status == TASK_FINISH || status == TASK_FINISH_Q) {
+	return 1;
+    }
+    else {
+	return 0;
+    }
 }
 
 static void*
