@@ -36,4 +36,4 @@ gdb: $(tests)
 pack: ptask.tgz
 
 ptask.tgz: *.c *.h Makefile
-	tar cfvz ptask.tgz *.c *.h Makefile
+	tar cfvz ptask.tgz *.c *.h Makefile ruby

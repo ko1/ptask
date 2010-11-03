@@ -128,7 +128,7 @@ const struct tq_set * const tq = &TQ_list_atomic;
 #define tq_steal  tq->steal
 #define tq_wait   tq->wait
 
-#elif 0
+#elif 1
 
 #include "tq_list_atomic.c"
 #define tq_name   "list_atomic"
@@ -485,6 +485,7 @@ ptask_worker_func(void *ptr)
 		ptask_execute(task);
 	    }
 	    else {
+		PTASK_PROFILE_INC(wait_num);
 		tq_wait(queue->tq);
 	    }
 	}

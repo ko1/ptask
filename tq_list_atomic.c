@@ -3,10 +3,13 @@
 #define QDBG 1
 #endif
 
+#include <semaphore.h>
+#include <errno.h>
+
 struct tq_list_atomic {
     tq_t basic;
-    ptask_t * volatile head, * volatile tail;
 
+    ptask_t * volatile head, * volatile tail;
     /*
      * head -> <old>
      *           v
@@ -14,6 +17,8 @@ struct tq_list_atomic {
      *           v
      * tail -> <new>
      */
+
+    sem_t sem;
 };
 
 static tq_t *
@@ -22,6 +27,7 @@ tq_list_atomic_create(size_t capa)
     struct tq_list_atomic *queue = xmalloc(sizeof(struct tq_list_atomic));
     memset(queue, 0, sizeof(struct tq_list_atomic));
     queue->head = queue->tail = 0;
+    sem_init(&queue->sem, 0, 0);
     return &queue->basic;
 }
 
@@ -47,6 +53,7 @@ tq_list_atomic_enq(tq_t *tq, ptask_t *task)
 
     if (tail == 0) {
 	queue->head = task;
+	sem_post(&queue->sem);
 	/* TODO: wakeup */
     }
     else {
@@ -66,7 +73,7 @@ tq_list_atomic_deq(tq_t *tq)
 
   retry:
     if (queue->head && queue->head != MEDIATOR) {
-	volatile ptask_t *task;
+	ptask_t *task;
 
 	task = atomic_swap(queue->head, MEDIATOR);
 
@@ -124,8 +131,21 @@ tq_list_atomic_wait(tq_t *tq)
     struct tq_list_atomic *queue = (struct tq_list_atomic *)tq;
     if (QDBG) fprintf(stderr, "wait - q: %p, num: %d\n", queue, queue->basic.num);
 
+  retry:
     if (queue->head == 0) {
-	sched_yield();
+	if (1) {
+	    if (sem_wait(&queue->sem) != 0) {
+	    switch (errno) {
+	      case EINTR: goto retry;
+	      case EINVAL: bug("sem_wait: EINVAL");
+	      default:
+		bug("sem_wait: unreachable");
+	    }
+	    }
+	}
+	else {
+	    sched_yield();
+	}
     }
 }
 
