@@ -109,12 +109,12 @@ static ptask_queue_group_t ptask_default_queue_group;
 
 #define QDBG 0
 
-#if 0
 #include "tq_list_lock.c"
 #include "tq_list_atomic.c"
 #include "tq_array_lock.c"
 #include "tq_array_atomic.c"
 
+#if 0
 //const struct tq_set *tq = &TQ_array_lock;
 //const struct tq_set *tq = &TQ_array_atomic;
 //const struct tq_set *tq = &TQ_list_lock;
@@ -130,7 +130,6 @@ const struct tq_set * const tq = &TQ_list_atomic;
 
 #elif 1
 
-#include "tq_list_atomic.c"
 #define tq_name   "list_atomic"
 #define tq_create tq_list_atomic_create
 #define tq_free   tq_list_atomic_free
@@ -141,7 +140,6 @@ const struct tq_set * const tq = &TQ_list_atomic;
 
 #else
 
-#include "tq_list_lock.c"
 #define tq_name   "list_lock"
 #define tq_create tq_list_lock_create
 #define tq_free   tq_list_lock_free
