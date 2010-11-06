@@ -121,7 +121,7 @@ tq_array_atomic_wait(tq_t *tq)
     struct tq_array_atomic *queue = (struct tq_array_atomic *)tq;
     int i;
 
-    if (QDBG); fprintf(stderr, "wn: %2d wait - q: %p, num: %d, start\n", ptask_worker_id, queue, queue->basic.num);
+    if (QDBG) fprintf(stderr, "wn: %2d wait - q: %p, num: %d, start\n", ptask_worker_id, queue, queue->basic.num);
 
   retry:
     PTASK_PROFILE_INC(wait_num);
@@ -146,7 +146,7 @@ tq_array_atomic_wait(tq_t *tq)
     }
 
   last:
-    if (QDBG); fprintf(stderr, "wn: %2d wait - q: %p, num: %d, end\n", ptask_worker_id, queue, queue->basic.num);
+    if (QDBG) fprintf(stderr, "wn: %2d wait - q: %p, num: %d, end\n", ptask_worker_id, queue, queue->basic.num);
 }
 
 static ptask_t *

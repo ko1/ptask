@@ -22,13 +22,14 @@ void ptask_queue_dispatch(ptask_queue_t *q, ptask_t *task);
 void ptask_queue_add_worker(ptask_queue_t *q);
 
 ptask_t *ptask_create(void *(*func)(void *args), void *argv);
+ptask_t *ptask_create_with_args(void *(*func)(), int argc, ...);
+
 int ptask_finished(ptask_t *task);
 void ptask_wait(ptask_t *task);
 void ptask_destruct(ptask_t *task);
 size_t ptask_memsize(ptask_t *task);
 
 void *ptask_malloc(size_t size);
-
 
 /* for performance test */
 void ptask_qtest(int n);

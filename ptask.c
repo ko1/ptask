@@ -61,7 +61,6 @@ struct ptask_struct {
     volatile enum task_status status;
     void *(*func)(void *ptr);
     void *argv;
-    void *result;
 };
 
 typedef struct ptask_worker_struct {
@@ -332,7 +331,7 @@ ptask_execute(ptask_t *task)
     }
 
     ptask_debug(1, "task_execute: %p\n", task);
-    task->result = task->func(task->argv);
+    task->func(task->argv);
     ptask_release(task);
     task_workers[ptask_worker_id].exec_count++;
 }
@@ -592,6 +591,60 @@ void
 ptask_queue_destruct(ptask_queue_t *queue)
 {
     tq_free(queue->tq);
+}
+
+struct ptask_with_args {
+    void *(*func)();
+    int argc;
+    void **argv;
+};
+
+void *
+with_args_func(void *ptr)
+{
+    struct ptask_with_args *args = (struct ptask_with_args *)ptr;
+
+    switch(args->argc) {
+      case 0: return args->func();
+      case 1: return args->func(args->argv[0]);
+      case 2: return args->func(args->argv[0], args->argv[1]);
+      case 3: return args->func(args->argv[0], args->argv[1], args->argv[2]);
+      case 4: return args->func(args->argv[0], args->argv[1], args->argv[2], args->argv[3]);
+      case 5: return args->func(args->argv[0], args->argv[1], args->argv[2], args->argv[3],
+				args->argv[4]);
+      case 6: return args->func(args->argv[0], args->argv[1], args->argv[2], args->argv[3],
+				args->argv[4], args->argv[5]);
+      case 7: return args->func(args->argv[0], args->argv[1], args->argv[2], args->argv[3],
+				args->argv[4], args->argv[5], args->argv[6]);
+      default: bug("with_args_func: unreachable");
+    }
+    return 0; /* unreachable */
+}
+
+ptask_t *
+ptask_create_with_args(void *(*func)(), int argc, ...)
+{
+    ptask_t *task = xmalloc(sizeof(ptask_t) + sizeof(struct ptask_with_args) + sizeof(void *) * argc);
+    struct ptask_with_args *data = (struct ptask_with_args *)((char *)task + sizeof(ptask_t));
+    int i;
+    data->argv = (void **)((char *)task + sizeof(ptask_t) + sizeof(struct ptask_with_args));
+
+    va_list args;
+
+    va_init_list(args, argc);
+    for (i=0; i<argc; i++) {
+	data->argv[i] = va_arg(args, void *);
+    }
+    va_end(args);
+
+    data->argc = argc;
+    data->func = func;
+
+    task->status = TASK_WAIT;
+    task->chained_queue = 0;
+    task->func = with_args_func;
+    task->argv = data;
+    return task;
 }
 
 ptask_t *
